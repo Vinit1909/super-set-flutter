@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:myapp/main.dart'; // Assuming your MyHomePage is accessible from here.
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:myapp/common/translator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -13,8 +14,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   bool _isPasswordVisible = false;
   bool _showLoginForm = false;
-  String? _selectedLanguage;
-  List<String> _languages = [];
+  String? _selectedLanguageCode;
+  Map<String, String> _languageMap = {};
 
   @override
   void initState() {
@@ -23,15 +24,33 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void loadLanguages() async {
-    final jsonString = await rootBundle.loadString('languages.json');
-    final jsonResponse = jsonDecode(jsonString) as List;
-    final languageMap = jsonResponse[0] as Map<String, dynamic>;
+    final jsonString =
+        await rootBundle.loadString('assets/language_options.json');
+    final jsonResponse = jsonDecode(jsonString) as Map<String, dynamic>;
+    List<dynamic> languages = jsonResponse['languages'];
 
     setState(() {
-      // Explicitly cast each value to a string
-      _languages =
-          languageMap.entries.map((entry) => entry.value as String).toList();
+      _languageMap = {for (var lang in languages) lang['code']: lang['name']};
     });
+  }
+
+  Future<void> loadSelectedLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedLanguage = prefs.getString('selectedLanguage');
+    if (storedLanguage != null && _languageMap.containsKey(storedLanguage)) {
+      _selectedLanguageCode = storedLanguage;
+    } else if (_languageMap.isNotEmpty) {
+      _selectedLanguageCode = _languageMap.keys.first;
+      saveSelectedLanguage(_selectedLanguageCode);
+    }
+    setState(() {});
+  }
+
+  Future<void> saveSelectedLanguage(String? lang) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (lang != null) {
+      await prefs.setString('selectedLanguage', lang);
+    }
   }
 
   @override
@@ -41,31 +60,33 @@ class _LoginPageState extends State<LoginPage> {
       body: Center(
         child: SingleChildScrollView(
           child: ConstrainedBox(
-            constraints: BoxConstraints(
-                maxWidth: 600), // Ideal for both mobile and desktop views.
+            constraints: BoxConstraints(maxWidth: 600),
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  if (!_showLoginForm) ...[
+                  if (!_showLoginForm && _languageMap.isNotEmpty) ...[
                     DropdownButtonFormField<String>(
-                      value: _selectedLanguage,
-                      decoration: const InputDecoration(
-                        labelText: 'Select Language',
+                      value: _selectedLanguageCode,
+                      decoration: InputDecoration(
+                        labelText: Translator.translate('select_language'),
                         border: OutlineInputBorder(),
                         filled: true,
                       ),
-                      onChanged: (String? newValue) {
-                        setState(() {
-                          _selectedLanguage = newValue;
-                        });
+                      onChanged: (String? newValue) async {
+                        if (newValue != null) {
+                          await saveSelectedLanguage(newValue);
+                          await Translator.setCurrentLanguage(newValue);
+                          setState(() {
+                            _selectedLanguageCode = newValue;
+                          });
+                        }
                       },
-                      items: _languages
-                          .map<DropdownMenuItem<String>>((String value) {
+                      items: _languageMap.entries.map((entry) {
                         return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
+                          value: entry.key,
+                          child: Text(entry.value),
                         );
                       }).toList(),
                     ),
@@ -76,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                           _showLoginForm = true;
                         });
                       },
-                      child: const Text('Continue to Login'),
+                      child: Text(Translator.translate('continue_to_login')),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(50),
                         shape: RoundedRectangleBorder(
@@ -90,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
                     TextField(
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
-                        labelText: 'Email',
+                        labelText: Translator.translate('email'),
                         border: OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.email),
                         filled: true,
@@ -101,7 +122,7 @@ class _LoginPageState extends State<LoginPage> {
                     TextField(
                       obscureText: !_isPasswordVisible,
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: Translator.translate('password'),
                         border: OutlineInputBorder(),
                         prefixIcon: const Icon(Icons.lock),
                         filled: true,
@@ -128,7 +149,7 @@ class _LoginPageState extends State<LoginPage> {
                             padding: const EdgeInsets.only(right: 10),
                             child: ElevatedButton(
                               onPressed: () {},
-                              child: const Text('Login'),
+                              child: Text(Translator.translate('login')),
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(50),
                                 shape: RoundedRectangleBorder(
@@ -141,7 +162,7 @@ class _LoginPageState extends State<LoginPage> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {},
-                            child: const Text('Sign Up'),
+                            child: Text(Translator.translate('sign_up')),
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size.fromHeight(50),
                               shape: RoundedRectangleBorder(
@@ -156,7 +177,7 @@ class _LoginPageState extends State<LoginPage> {
                     // Forgot Password Button
                     TextButton(
                       onPressed: () {},
-                      child: const Text('Forgot Password?'),
+                      child: Text(Translator.translate('forgot_password')),
                     ),
                   ],
                 ],

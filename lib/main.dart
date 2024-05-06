@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:myapp/common/translator.dart';
 import '../common/app_bar.dart';
 import 'package:myapp/login/login.dart';
 
-void main() {
+void main() async {
+   WidgetsFlutterBinding.ensureInitialized();
+  await Translator.setCurrentLanguage(await Translator.getCurrentLanguage());
   runApp(const MyApp());
 }
 
