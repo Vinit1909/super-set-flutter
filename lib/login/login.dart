@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:myapp/common/translator.dart';
+import 'package:myapp/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({Key? key}) : super(key: key);
@@ -16,6 +18,9 @@ class _LoginPageState extends State<LoginPage> {
   bool _showLoginForm = false;
   String? _selectedLanguageCode;
   Map<String, String> _languageMap = {};
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   @override
   void initState() {
@@ -53,10 +58,38 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> signup(String email, String password) async {
+    var url = Uri.parse('http://localhost:4000/api/signup');
+    var headers = {'Content-Type': 'application/json'};
+    var body = jsonEncode({'email': email, 'password': password});
+    try {
+      var response = await http.post(url, headers: headers, body: body);
+      print(response.statusCode);
+
+      if (response.statusCode == 201) {
+        String responseBody = response.body;
+        var decodedResponse = json.decode(responseBody);
+        print(decodedResponse);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userToken', decodedResponse['userToken']);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => SuperSetHomePage()),
+        );
+      } else {
+        print('Failed to login');
+        // Handle error or display message
+      }
+    } catch (e) {
+      print('Error connecting to the server: $e');
+      // Handle exception by showing user-friendly error message
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(title: const Text('Super Set')),
       body: Center(
         child: SingleChildScrollView(
           child: ConstrainedBox(
@@ -107,8 +140,8 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                   if (_showLoginForm) ...[
-                    // Email Field
                     TextField(
+                      controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: Translator.translate('email'),
@@ -118,8 +151,8 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    // Password Field with visibility toggle
                     TextField(
+                      controller: _passwordController,
                       obscureText: !_isPasswordVisible,
                       decoration: InputDecoration(
                         labelText: Translator.translate('password'),
@@ -161,7 +194,10 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              signup(_emailController.text,
+                                  _passwordController.text);
+                            },
                             child: Text(Translator.translate('sign_up')),
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size.fromHeight(50),

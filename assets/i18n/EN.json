@@ -1,9 +1,11 @@
 {
-  "select_language": "Select Language",
+  "select_language": "Select Language of Preference",
   "continue_to_login": "Continue to Login",
   "email": "Email",
   "password": "Password",
   "login": "Login",
   "sign_up": "Sign Up",
-  "forgot_password": "Forgot Password?"
+  "forgot_password": "Forgot Password?",
+  "select_age": "Select age",
+  "select_learning_language":"Select learning Language"
 }

@@ -1,132 +1,273 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:myapp/common/translator.dart';
 import '../common/app_bar.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:myapp/login/login.dart';
+import 'package:myapp/common/translator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
-   WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
   await Translator.setCurrentLanguage(await Translator.getCurrentLanguage());
-  runApp(const MyApp());
+  final prefs = await SharedPreferences.getInstance();
+  final userToken = prefs.getString('userToken');
+
+  runApp(MyApp(userLoggedIn: userToken != null));
 }
 
-bool isLoggedIn = false;
-
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool userLoggedIn;
+  const MyApp({super.key, required this.userLoggedIn});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Super Set',
-     theme: ThemeData(
-        useMaterial3: true, // Ensure Material 3 is being used
+      theme: ThemeData(
+        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.white), // Text and icon color
-            backgroundColor: MaterialStateProperty.all(Colors.deepPurple), // Background color
+            foregroundColor: MaterialStateProperty.all(Colors.white),
+            backgroundColor: MaterialStateProperty.all(Colors.deepPurple),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.deepPurple), // Text color
+            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.deepPurple), // Text and icon color
-            side: MaterialStateProperty.all(BorderSide(color: Colors.deepPurple, width: 2)), // Border color
+            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
+            side: MaterialStateProperty.all(
+                BorderSide(color: Colors.deepPurple, width: 2)),
           ),
         ),
       ),
-      home: isLoggedIn ? const MyHomePage(title: 'Flutter Demo Home Page') : const LoginPage(),
+      home: userLoggedIn ? const SuperSetHomePage() : const LoginPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class SuperSetHomePage extends StatefulWidget {
+  const SuperSetHomePage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<SuperSetHomePage> createState() => _SuperSetHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _SuperSetHomePageState extends State<SuperSetHomePage> {
+  String? username;
+  final TextEditingController _usernameController = TextEditingController();
+  int? _age;
+  String? _selectedLanguageCode;
+  Map<String, String> _languageMap = {};
+  bool _showDetailsForm = false; // State variable to manage form display
 
-  void _incrementCounter() {
+  final List<int> _ages =
+      List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsername();
+    loadLanguages();
+  }
+
+  void loadLanguages() async {
+    final jsonString =
+        await rootBundle.loadString('assets/language_options.json');
+    final jsonResponse = jsonDecode(jsonString) as Map<String, dynamic>;
+    List<dynamic> languages = jsonResponse['languages'];
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _languageMap = {for (var lang in languages) lang['code']: lang['name']};
+    });
+  }
+
+  Future<void> loadSelectedLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedLanguage = prefs.getString('selectedLanguage');
+    if (storedLanguage != null && _languageMap.containsKey(storedLanguage)) {
+      _selectedLanguageCode = storedLanguage;
+    } else if (_languageMap.isNotEmpty) {
+      _selectedLanguageCode = _languageMap.keys.first;
+      saveSelectedLanguage(_selectedLanguageCode);
+    }
+    setState(() {});
+  }
+
+  Future<void> saveSelectedLanguage(String? lang) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (lang != null) {
+      await prefs.setString('selectedLanguage', lang);
+    }
+  }
+
+  Future<void> _loadUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      username = prefs.getString('username');
+    });
+  }
+
+  Future<void> _setUsername(String newUsername) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', newUsername);
+    setState(() {
+      username = newUsername;
+      _showDetailsForm = true; // Show the details form after setting the username
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-       appBar: const SuperSetAppBar(title: Row(
+      appBar: const SuperSetAppBar(
+        title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Super Set'),
           ],
-        )),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      body: Center(
+        child: username == null || !_showDetailsForm 
+          ? _buildUsernameForm() 
+          : _buildDetailsForm(), // Conditionally render forms
+      ),
     );
   }
+
+  Widget _buildUsernameForm() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 300,
+            child: TextField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Enter your username',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              final newUsername = _usernameController.text;
+              if (newUsername.isNotEmpty) {
+                _setUsername(newUsername);
+              }
+            },
+            child: const Icon(Icons.arrow_forward),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsForm() {
+    return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+            child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 600),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+              const SizedBox(height: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<int>(
+                    value: _age,
+                    decoration: InputDecoration(
+                      labelText: Translator.translate('select_age'),
+                      border: OutlineInputBorder(),
+                      filled: true,
+                    ),
+                    onChanged: (int? newValue) {
+                      setState(() {
+                        _age = newValue!;
+                      });
+                    },
+                    items: _ages.map<DropdownMenuItem<int>>((int value) {
+                      return DropdownMenuItem<int>(
+                        value: value,
+                        child: Text(value.toString()),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _selectedLanguageCode,
+                    decoration: InputDecoration(
+                      labelText:
+                          Translator.translate('select_learning_language'),
+                      border: OutlineInputBorder(),
+                      filled: true,
+                    ),
+                    onChanged: (String? newValue) async {
+                      if (newValue != null) {
+                        await saveSelectedLanguage(newValue);
+                        await Translator.setCurrentLanguage(newValue);
+                        setState(() {
+                          _selectedLanguageCode = newValue;
+                        });
+                      }
+                    },
+                    items: _languageMap.entries.map((entry) {
+                      return DropdownMenuItem<String>(
+                        value: entry.key,
+                        child: Text(entry.value),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  // Save age and language preference here, if needed
+                  // Navigate to the next screen or show a message
+                },
+                child: const Text('Submit'),
+              ),
+            ],
+          ),
+        )));
+  }
+
+  Widget _buildHomePage() {
+    return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+            child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 600),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+              const SizedBox(height: 20),
+            ],
+          ),
+        )));
+  }
 }
+
