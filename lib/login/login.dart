@@ -64,12 +64,9 @@ class _LoginPageState extends State<LoginPage> {
     var body = jsonEncode({'email': email, 'password': password});
     try {
       var response = await http.post(url, headers: headers, body: body);
-      print(response.statusCode);
-
       if (response.statusCode == 201) {
         String responseBody = response.body;
         var decodedResponse = json.decode(responseBody);
-        print(decodedResponse);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userToken', decodedResponse['userToken']);
         Navigator.pushReplacement(

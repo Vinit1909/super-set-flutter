@@ -1,13 +1,11 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:myapp/common/translator.dart';
 import '../common/app_bar.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:myapp/login/login.dart';
-import 'package:myapp/common/translator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,11 +62,11 @@ class SuperSetHomePage extends StatefulWidget {
 
 class _SuperSetHomePageState extends State<SuperSetHomePage> {
   String? username;
+  bool _isUsernameFormSubmitted = false;
   final TextEditingController _usernameController = TextEditingController();
   int? _age;
-  String? _selectedLanguageCode;
+  String? _selectedLearningLanguageCode;
   Map<String, String> _languageMap = {};
-  bool _showDetailsForm = false; // State variable to manage form display
 
   final List<int> _ages =
       List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
@@ -91,39 +89,60 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     });
   }
 
-  Future<void> loadSelectedLanguage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final storedLanguage = prefs.getString('selectedLanguage');
-    if (storedLanguage != null && _languageMap.containsKey(storedLanguage)) {
-      _selectedLanguageCode = storedLanguage;
-    } else if (_languageMap.isNotEmpty) {
-      _selectedLanguageCode = _languageMap.keys.first;
-      saveSelectedLanguage(_selectedLanguageCode);
-    }
-    setState(() {});
-  }
-
-  Future<void> saveSelectedLanguage(String? lang) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (lang != null) {
-      await prefs.setString('selectedLanguage', lang);
-    }
-  }
-
   Future<void> _loadUsername() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      username = prefs.getString('username');
-    });
+    final savedUsername = prefs.getString('user_name') ?? '';
+    if (savedUsername != '') {
+      setState(() {
+        username = savedUsername;
+      });
+    }
   }
 
   Future<void> _setUsername(String newUsername) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', newUsername);
+    await prefs.setString('user_name', newUsername);
     setState(() {
       username = newUsername;
-      _showDetailsForm = true; // Show the details form after setting the username
     });
+  }
+
+  Future<void> completeProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedLanguage = prefs.getString('selectedLanguage');
+    final userToken = prefs.getString('userToken');
+    var url = Uri.parse('http://localhost:4000/api/set-user-profile');
+    var headers = {
+      'Content-Type': 'application/json',
+      'Authorization': '$userToken'
+    };
+    var body = jsonEncode({
+      'language_preference': storedLanguage,
+      'learning_language': _selectedLearningLanguageCode,
+      'user_name': username,
+      'user_age': _age
+    });
+    try {
+      var response = await http.post(url, headers: headers, body: body);
+      print(response.statusCode);
+
+      if (response.statusCode == 201) {
+        String responseBody = response.body;
+        var decodedResponse = json.decode(responseBody);
+        print(decodedResponse['user_name']);
+        _setUsername(decodedResponse['user_name']);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => SuperSetHomePage()),
+        );
+      } else {
+        print('Failed to login');
+        // Handle error or display message
+      }
+    } catch (e) {
+      print('Error connecting to the server: $e');
+      // Handle exception by showing user-friendly error message
+    }
   }
 
   @override
@@ -138,9 +157,9 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
         ),
       ),
       body: Center(
-        child: username == null || !_showDetailsForm 
-          ? _buildUsernameForm() 
-          : _buildDetailsForm(), // Conditionally render forms
+        child: username == null
+            ? _buildUsernameForm()
+            : (_isUsernameFormSubmitted ? _buildDetailsForm() : _buildHomePage()),
       ),
     );
   }
@@ -164,10 +183,10 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
-              final newUsername = _usernameController.text;
-              if (newUsername.isNotEmpty) {
-                _setUsername(newUsername);
-              }
+              setState(() {
+                username = _usernameController.text;
+                _isUsernameFormSubmitted = true;
+              });
             },
             child: const Icon(Icons.arrow_forward),
           ),
@@ -216,7 +235,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: _selectedLanguageCode,
+                    value: _selectedLearningLanguageCode,
                     decoration: InputDecoration(
                       labelText:
                           Translator.translate('select_learning_language'),
@@ -225,10 +244,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
                     ),
                     onChanged: (String? newValue) async {
                       if (newValue != null) {
-                        await saveSelectedLanguage(newValue);
-                        await Translator.setCurrentLanguage(newValue);
                         setState(() {
-                          _selectedLanguageCode = newValue;
+                          _selectedLearningLanguageCode = newValue;
                         });
                       }
                     },
@@ -244,10 +261,9 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
-                  // Save age and language preference here, if needed
-                  // Navigate to the next screen or show a message
+                  completeProfile();
                 },
-                child: const Text('Submit'),
+                child: Text(Translator.translate('complete_profile')),
               ),
             ],
           ),
@@ -270,4 +286,3 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
         )));
   }
 }
-
