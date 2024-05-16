@@ -74,6 +74,55 @@ class _LoginPageState extends State<LoginPage> {
           MaterialPageRoute(builder: (context) => SuperSetHomePage()),
         );
       } else {
+        print('Failed to signup');
+        // Handle error or display message
+      }
+    } catch (e) {
+      print('Error connecting to the server: $e');
+      // Handle exception by showing user-friendly error message
+    }
+  }
+
+  Future<void> signin(String email, String password) async {
+    var signInurl = Uri.parse('http://localhost:4000/api/signin');
+    var headers = {'Content-Type': 'application/json'};
+    var body = jsonEncode({'email': email, 'password': password});
+    try {
+      var response = await http.post(signInurl, headers: headers, body: body);
+      if (response.statusCode == 200) {
+        String responseBody = response.body;
+        var decodedSigninResponse = json.decode(responseBody);
+        final prefs = await SharedPreferences.getInstance();
+        String userToken = decodedSigninResponse['userToken'];
+        await prefs.setString('userToken', decodedSigninResponse['userToken']);
+        var profileUrl =
+            Uri.parse('http://localhost:4000/api/get-user-profile');
+        var profileHeaders = {
+          'Content-Type': 'application/json',
+          'Authorization': userToken,
+        };
+        var profileResponse =
+            await http.get(profileUrl, headers: profileHeaders);
+        if (profileResponse.statusCode == 200) {
+          String profileResponseBody = profileResponse.body;
+          var decodedProfileResponse = json.decode(profileResponseBody);
+
+          // Store user profile details in SharedPreferences
+          await prefs.setString(
+              'user_name', decodedProfileResponse['user_name']);
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => SuperSetHomePage()),
+          );
+        } else {
+          print('Failed to retrieve user profile');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => SuperSetHomePage()),
+          );
+        }
+      } else {
         print('Failed to login');
         // Handle error or display message
       }
@@ -178,7 +227,10 @@ class _LoginPageState extends State<LoginPage> {
                           child: Padding(
                             padding: const EdgeInsets.only(right: 10),
                             child: ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                signin(_emailController.text,
+                                    _passwordController.text);
+                              },
                               child: Text(Translator.translate('login')),
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size.fromHeight(50),
