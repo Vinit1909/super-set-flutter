@@ -1,9 +1,12 @@
 {
-  "select_language": "Seleccione idioma",
+  "select_language": "Seleccione el idioma de preferencia",
   "continue_to_login": "Continuar para iniciar sesión",
   "email": "Correo electrónico",
   "password": "Contraseña",
   "login": "Iniciar sesión",
   "sign_up": "Registrarse",
-  "forgot_password": "¿Olvidó la contraseña?"
+  "forgot_password": "¿Olvidaste tu contraseña?",
+  "select_age": "Selecciona la edad",
+  "select_learning_language": "Selecciona el idioma de aprendizaje",
+  "complete_profile": "Completar perfil"
 }
