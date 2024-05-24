@@ -149,7 +149,7 @@ class _LoginPageState extends State<LoginPage> {
                     DropdownButtonFormField<String>(
                       value: _selectedLanguageCode,
                       decoration: InputDecoration(
-                        labelText: Translator.translate('select_language'),
+                        labelText: Translator.translate('native_language'),
                         border: OutlineInputBorder(),
                         filled: true,
                       ),

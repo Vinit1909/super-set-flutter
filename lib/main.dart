@@ -67,6 +67,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   int? _age;
   String? _selectedLearningLanguageCode;
   Map<String, String> _languageMap = {};
+  List<dynamic> _catalog = [];
 
   final List<int> _ages =
       List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
@@ -76,6 +77,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     super.initState();
     _loadUsername();
     loadLanguages();
+    fetchCatalog();
   }
 
   void loadLanguages() async {
@@ -105,6 +107,15 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     setState(() {
       username = newUsername;
     });
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('userToken');
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
   }
 
   Future<void> completeProfile() async {
@@ -145,22 +156,89 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     }
   }
 
+  Future<void> fetchCatalog() async {
+    var url = Uri.parse('http://localhost:4000/api/all-game-profiles');
+    try {
+      var response = await http.get(url);
+      if (response.statusCode == 200) {
+        setState(() {
+          _catalog = json.decode(response.body);
+        });
+      } else {
+        print('Failed to fetch catalog');
+      }
+    } catch (e) {
+      print('Error fetching catalog: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const SuperSetAppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      appBar: AppBar(
+        title: const Text('Super Set'),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'logout') {
+                _logout();
+              }
+            },
+            itemBuilder: (BuildContext context) {
+              return [
+                const PopupMenuItem<String>(
+                  value: 'logout',
+                  child: Text('Logout'),
+                ),
+              ];
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Super Set'),
+            if (username != null) Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 20),
+            Expanded(
+              child: _buildCatalogGrid(),
+            ),
           ],
         ),
       ),
-      body: Center(
-        child: username == null
-            ? _buildUsernameForm()
-            : (_isUsernameFormSubmitted ? _buildDetailsForm() : _buildHomePage()),
+    );
+  }
+
+  Widget _buildCatalogGrid() {
+    return GridView.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 10.0,
+        mainAxisSpacing: 10.0,
       ),
+      itemCount: _catalog.length,
+      itemBuilder: (BuildContext context, int index) {
+        final item = _catalog[index];
+        return Card(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.network(
+                item['iconUrl'],
+                height: 50,
+                width: 50,
+                errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
+                  return const Icon(Icons.error);
+                },
+              ),
+              const SizedBox(height: 10),
+              Text(item['display_name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -270,19 +348,19 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
         )));
   }
 
-  Widget _buildHomePage() {
-    return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-            child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 600),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
-              const SizedBox(height: 20),
-            ],
-          ),
-        )));
-  }
+  // Widget _buildHomePage() {
+  //   return Padding(
+  //       padding: const EdgeInsets.all(16.0),
+  //       child: SingleChildScrollView(
+  //           child: ConstrainedBox(
+  //         constraints: BoxConstraints(maxWidth: 600),
+  //         child: Column(
+  //           mainAxisAlignment: MainAxisAlignment.center,
+  //           children: [
+  //             Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+  //             const SizedBox(height: 20),
+  //           ],
+  //         ),
+  //       )));
+  // }
 }
