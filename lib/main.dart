@@ -6,6 +6,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:superset/login/login.dart';
 import 'package:http/http.dart' as http;
 import 'dart:typed_data';
+import 'package:device_apps/device_apps.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -209,32 +211,68 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
       isScrollControlled: true,
       builder: (BuildContext context) {
         return FractionallySizedBox(
-          heightFactor: 0.6, 
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    gameProfile.displayName,
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          heightFactor: 0.6, // 60% of the screen height
+          child: FutureBuilder<bool>(
+            future: DeviceApps.isAppInstalled(gameProfile.packageId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              } else {
+                bool isInstalled = snapshot.data ?? false;
+                return SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          gameProfile.displayName,
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(gameProfile.description),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 4.0,
+                          children: gameProfile.gameTags.map((tag) {
+                            return Chip(label: Text(tag));
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 10),
+                        Chip(
+                            label:
+                                Text('Age Rating: ${gameProfile.ageRating}')),
+                        const SizedBox(height: 20),
+                        if (isInstalled)
+                          ElevatedButton(
+                            onPressed: () {
+                              DeviceApps.openApp(gameProfile.packageId);
+                            },
+                            child: Text('Play Now'),
+                          )
+                        else
+                          ElevatedButton(
+                            onPressed: () async {
+                              final url =
+                                  'https://play.google.com/store/apps/details?id=${gameProfile.packageId}';
+                              if (await canLaunch(url)) {
+                                await launch(url);
+                              } else {
+                                throw 'Could not launch $url';
+                              }
+                            },
+                            child: Text('Download Now'),
+                          ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  Text(gameProfile.description),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8.0,
-                    runSpacing: 4.0,
-                    children: gameProfile.gameTags.map((tag) {
-                      return Chip(label: Text(tag));
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  Chip(label: Text('Age Rating: ${gameProfile.ageRating}')),
-                ],
-              ),
-            ),
+                );
+              }
+            },
           ),
         );
       },
@@ -270,8 +308,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (username != null)
-              Text('Welcome, $username!',
-                  style: const TextStyle(fontSize: 24)),
+              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 20),
             Expanded(
               child: _buildCatalogGrid(),
@@ -285,7 +322,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   Widget _buildCatalogGrid() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cardHeight = constraints.maxHeight * 0.25; // 25% of the screen height
+        final cardHeight =
+            constraints.maxHeight * 0.25; // 25% of the screen height
         return GridView.builder(
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
@@ -311,6 +349,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
                     ),
                     const SizedBox(height: 10),
                     Text(item['display_name'],
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
@@ -363,8 +402,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Welcome, $username!',
-                  style: const TextStyle(fontSize: 24)),
+              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
               const SizedBox(height: 20),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,15 +474,14 @@ class GameProfile {
   final String description;
   final List<String> gameTags;
   final int ageRating;
-  final int packageId;
+  final String packageId;
 
-  GameProfile({
-    required this.displayName,
-    required this.description,
-    required this.gameTags,
-    required this.ageRating,
-    required this.packageId
-  });
+  GameProfile(
+      {required this.displayName,
+      required this.description,
+      required this.gameTags,
+      required this.ageRating,
+      required this.packageId});
 
   factory GameProfile.fromJson(Map<String, dynamic> json) {
     return GameProfile(
@@ -453,7 +490,6 @@ class GameProfile {
       gameTags: List<String>.from(json['game_tags']),
       ageRating: json['age_rating'],
       packageId: json['package_id'],
-
     );
   }
 }
