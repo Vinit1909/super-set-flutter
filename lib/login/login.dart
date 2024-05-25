@@ -58,12 +58,30 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void showLoadingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+    );
+  }
+
+  void hideLoadingDialog(BuildContext context) {
+    Navigator.of(context).pop();
+  }
+
   Future<void> signup(String email, String password) async {
-    var url = Uri.parse('http://localhost:4000/api/signup');
+    showLoadingDialog(context);
+    var url = Uri.parse('http://10.0.0.46:4000/api/signup');
     var headers = {'Content-Type': 'application/json'};
     var body = jsonEncode({'email': email, 'password': password});
     try {
       var response = await http.post(url, headers: headers, body: body);
+      hideLoadingDialog(context);
       if (response.statusCode == 201) {
         String responseBody = response.body;
         var decodedResponse = json.decode(responseBody);
@@ -78,13 +96,15 @@ class _LoginPageState extends State<LoginPage> {
         // Handle error or display message
       }
     } catch (e) {
+      hideLoadingDialog(context);
       print('Error connecting to the server: $e');
       // Handle exception by showing user-friendly error message
     }
   }
 
   Future<void> signin(String email, String password) async {
-    var signInurl = Uri.parse('http://localhost:4000/api/signin');
+    showLoadingDialog(context);
+    var signInurl = Uri.parse('http://10.0.0.46:4000/api/signin');
     var headers = {'Content-Type': 'application/json'};
     var body = jsonEncode({'email': email, 'password': password});
     try {
@@ -96,13 +116,14 @@ class _LoginPageState extends State<LoginPage> {
         String userToken = decodedSigninResponse['userToken'];
         await prefs.setString('userToken', decodedSigninResponse['userToken']);
         var profileUrl =
-            Uri.parse('http://localhost:4000/api/get-user-profile');
+            Uri.parse('http://10.0.0.46:4000/api/get-user-profile');
         var profileHeaders = {
           'Content-Type': 'application/json',
           'Authorization': userToken,
         };
         var profileResponse =
             await http.get(profileUrl, headers: profileHeaders);
+        hideLoadingDialog(context);
         if (profileResponse.statusCode == 200) {
           String profileResponseBody = profileResponse.body;
           var decodedProfileResponse = json.decode(profileResponseBody);
@@ -123,10 +144,12 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } else {
+        hideLoadingDialog(context);
         print('Failed to login');
         // Handle error or display message
       }
     } catch (e) {
+      hideLoadingDialog(context);
       print('Error connecting to the server: $e');
       // Handle exception by showing user-friendly error message
     }
