@@ -33,19 +33,19 @@ class SuperSet extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.white),
-            backgroundColor: MaterialStateProperty.all(Colors.deepPurple),
+            foregroundColor: WidgetStateProperty.all(Colors.white),
+            backgroundColor: WidgetStateProperty.all(Colors.deepPurple),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
+            foregroundColor: WidgetStateProperty.all(Colors.deepPurple),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
-            side: MaterialStateProperty.all(
+            foregroundColor: WidgetStateProperty.all(Colors.deepPurple),
+            side: WidgetStateProperty.all(
                 BorderSide(color: Colors.deepPurple, width: 2)),
           ),
         ),
