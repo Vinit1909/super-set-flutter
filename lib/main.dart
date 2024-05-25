@@ -1,10 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:myapp/common/translator.dart';
-import '../common/app_bar.dart';
+import 'package:superset/common/translator.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:myapp/login/login.dart';
+import 'package:superset/login/login.dart';
 import 'package:http/http.dart' as http;
 
 void main() async {
@@ -13,12 +12,12 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final userToken = prefs.getString('userToken');
 
-  runApp(MyApp(userLoggedIn: userToken != null));
+  runApp(SuperSet(userLoggedIn: userToken != null));
 }
 
-class MyApp extends StatelessWidget {
+class SuperSet extends StatelessWidget {
   final bool userLoggedIn;
-  const MyApp({super.key, required this.userLoggedIn});
+  const SuperSet({super.key, required this.userLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -31,19 +30,19 @@ class MyApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.white),
-            backgroundColor: MaterialStateProperty.all(Colors.deepPurple),
+            foregroundColor: WidgetStateProperty.all(Colors.white),
+            backgroundColor: WidgetStateProperty.all(Colors.deepPurple),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
+            foregroundColor: WidgetStateProperty.all(Colors.deepPurple),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
-            side: MaterialStateProperty.all(
+            foregroundColor: WidgetStateProperty.all(Colors.deepPurple),
+            side: WidgetStateProperty.all(
                 BorderSide(color: Colors.deepPurple, width: 2)),
           ),
         ),
@@ -172,6 +171,61 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     }
   }
 
+Future<GameProfile> fetchGameProfile(String gameName) async {
+  var url = Uri.parse('http://localhost:4000/api/game?game_name=$gameName');
+  try {
+    var response = await http.get(url);
+    if (response.statusCode == 200) {
+      return GameProfile.fromJson(jsonDecode(response.body));
+    } else {
+      print('Failed to load game profile: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      throw Exception('Failed to load game profile');
+    }
+  } catch (e) {
+    print('Error fetching game profile: $e');
+    throw Exception('Failed to load game profile');
+  }
+}
+
+  void showGameProfileModal(BuildContext context, GameProfile gameProfile) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (BuildContext context) {
+      return FractionallySizedBox(
+        heightFactor: 0.6, // 60% of the screen height
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  gameProfile.displayName,
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                Text(gameProfile.description),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8.0,
+                  runSpacing: 4.0,
+                  children: gameProfile.gameTags.map((tag) {
+                    return Chip(label: Text(tag));
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                Chip(label: Text('Age Rating: ${gameProfile.ageRating}')),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -200,7 +254,9 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (username != null) Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+            if (username != null)
+              Text('Welcome, $username!',
+                  style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 20),
             Expanded(
               child: _buildCatalogGrid(),
@@ -221,21 +277,31 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
       itemCount: _catalog.length,
       itemBuilder: (BuildContext context, int index) {
         final item = _catalog[index];
-        return Card(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.network(
-                item['iconUrl'],
-                height: 50,
-                width: 50,
-                errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-                  return const Icon(Icons.error);
-                },
-              ),
-              const SizedBox(height: 10),
-              Text(item['display_name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
+        return GestureDetector(
+          onTap: () async {
+            GameProfile gameProfile =
+                await fetchGameProfile(item['game_name']);
+            showGameProfileModal(context, gameProfile);
+          },
+          child: Card(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.network(
+                  item['iconUrl'],
+                  height: 50,
+                  width: 50,
+                  errorBuilder: (BuildContext context, Object exception,
+                      StackTrace? stackTrace) {
+                    return const Icon(Icons.error);
+                  },
+                ),
+                const SizedBox(height: 10),
+                Text(item['display_name'],
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
         );
       },
@@ -282,7 +348,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+              Text('Welcome, $username!',
+                  style: const TextStyle(fontSize: 24)),
               const SizedBox(height: 20),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,20 +414,27 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
           ),
         )));
   }
+}
 
-  // Widget _buildHomePage() {
-  //   return Padding(
-  //       padding: const EdgeInsets.all(16.0),
-  //       child: SingleChildScrollView(
-  //           child: ConstrainedBox(
-  //         constraints: BoxConstraints(maxWidth: 600),
-  //         child: Column(
-  //           mainAxisAlignment: MainAxisAlignment.center,
-  //           children: [
-  //             Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
-  //             const SizedBox(height: 20),
-  //           ],
-  //         ),
-  //       )));
-  // }
+class GameProfile {
+  final String displayName;
+  final String description;
+  final List<String> gameTags;
+  final int ageRating;
+
+  GameProfile({
+    required this.displayName,
+    required this.description,
+    required this.gameTags,
+    required this.ageRating,
+  });
+
+  factory GameProfile.fromJson(Map<String, dynamic> json) {
+    return GameProfile(
+      displayName: json['display_name'],
+      description: json['description'],
+      gameTags: List<String>.from(json['game_tags']),
+      ageRating: json['age_rating'],
+    );
+  }
 }

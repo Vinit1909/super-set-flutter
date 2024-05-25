@@ -1,4 +1,4 @@
-# myapp
+# SuperSet
 
 A new Flutter project.
 

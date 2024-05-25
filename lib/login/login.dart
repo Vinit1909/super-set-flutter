@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:myapp/common/translator.dart';
-import 'package:myapp/main.dart';
+import 'package:superset/common/translator.dart';
+import 'package:superset/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
