@@ -121,7 +121,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     final prefs = await SharedPreferences.getInstance();
     final storedLanguage = prefs.getString('selectedLanguage');
     final userToken = prefs.getString('userToken');
-    var url = Uri.parse('http://localhost:4000/api/set-user-profile');
+    var url = Uri.parse('http://10.0.0.46:4000/api/set-user-profile');
     var headers = {
       'Content-Type': 'application/json',
       'Authorization': '$userToken'
@@ -156,7 +156,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   }
 
   Future<void> fetchCatalog() async {
-    var url = Uri.parse('http://localhost:4000/api/all-game-profiles');
+    var url = Uri.parse('http://10.0.0.46:4000/api/all-game-profiles');
     try {
       var response = await http.get(url);
       if (response.statusCode == 200) {
@@ -172,7 +172,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   }
 
 Future<GameProfile> fetchGameProfile(String gameName) async {
-  var url = Uri.parse('http://localhost:4000/api/game?game_name=$gameName');
+  var url = Uri.parse('http://10.0.0.46:4000/api/game?game_name=$gameName');
   try {
     var response = await http.get(url);
     if (response.statusCode == 200) {

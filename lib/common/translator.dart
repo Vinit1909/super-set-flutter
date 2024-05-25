@@ -6,7 +6,7 @@ class Translator {
   static Map<String, String> _localizedStrings = {};
 
   static Future<void> loadLanguage(String locale) async {
-    String jsonString = await rootBundle.loadString('i18n/$locale.json');
+    String jsonString = await rootBundle.loadString('assets/i18n/$locale.json');
     Map<String, dynamic> jsonMap = json.decode(jsonString) as Map<String, dynamic>;
     _localizedStrings = jsonMap.map<String, String>(
       (key, value) => MapEntry(key, value.toString()),
