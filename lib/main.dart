@@ -1,11 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:superset/common/translator.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:superset/login/login.dart';
 import 'package:http/http.dart' as http;
-import 'dart:typed_data';
 import 'package:device_apps/device_apps.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -33,19 +33,19 @@ class SuperSet extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: WidgetStateProperty.all(Colors.white),
-            backgroundColor: WidgetStateProperty.all(Colors.deepPurple),
+            foregroundColor: MaterialStateProperty.all(Colors.white),
+            backgroundColor: MaterialStateProperty.all(Colors.deepPurple),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: WidgetStateProperty.all(Colors.deepPurple),
+            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: ButtonStyle(
-            foregroundColor: WidgetStateProperty.all(Colors.deepPurple),
-            side: WidgetStateProperty.all(
+            foregroundColor: MaterialStateProperty.all(Colors.deepPurple),
+            side: MaterialStateProperty.all(
                 BorderSide(color: Colors.deepPurple, width: 2)),
           ),
         ),
@@ -202,13 +202,16 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
 
   Image _loadImageFromBase64(String base64String) {
     Uint8List imageBytes = _decodeBase64(base64String);
-    return Image.memory(imageBytes);
+    return Image.memory(imageBytes, fit: BoxFit.cover);
   }
 
   void showGameProfileModal(BuildContext context, GameProfile gameProfile) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25.0)),
+      ),
       builder: (BuildContext context) {
         return FractionallySizedBox(
           heightFactor: 0.6, // 60% of the screen height
@@ -221,54 +224,56 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
                 return Center(child: Text('Error: ${snapshot.error}'));
               } else {
                 bool isInstalled = snapshot.data ?? false;
-                return SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          gameProfile.displayName,
-                          style: TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(gameProfile.description),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8.0,
-                          runSpacing: 4.0,
-                          children: gameProfile.gameTags.map((tag) {
-                            return Chip(label: Text(tag));
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 10),
-                        Chip(
-                            label:
-                                Text('Age Rating: ${gameProfile.ageRating}')),
-                        const SizedBox(height: 20),
-                        if (isInstalled)
-                          ElevatedButton(
-                            onPressed: () {
-                              DeviceApps.openApp(gameProfile.packageId);
-                            },
-                            child: Text('Play Now'),
-                          )
-                        else
-                          ElevatedButton(
-                            onPressed: () async {
-                              final url =
-                                  'https://play.google.com/store/apps/details?id=${gameProfile.packageId}';
-                              if (await canLaunch(url)) {
-                                await launch(url);
-                              } else {
-                                throw 'Could not launch $url';
-                              }
-                            },
-                            child: Text('Download Now'),
+                return Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        gameProfile.displayName,
+                        style: TextStyle(
+                            fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(gameProfile.description),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8.0,
+                        runSpacing: 4.0,
+                        children: gameProfile.gameTags.map((tag) {
+                          return Chip(label: Text(tag));
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 10),
+                      Chip(label: Text('Age Rating: ${gameProfile.ageRating}')),
+                      const SizedBox(height: 20),
+                      if (isInstalled)
+                        ElevatedButton(
+                          onPressed: () {
+                            DeviceApps.openApp(gameProfile.packageId);
+                          },
+                          child: Text('Play Now'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size(double.infinity, 50),
                           ),
-                      ],
-                    ),
+                        )
+                      else
+                        ElevatedButton(
+                          onPressed: () async {
+                            final url =
+                                'https://play.google.com/store/apps/details?id=${gameProfile.packageId}';
+                            if (await canLaunch(url)) {
+                              await launch(url);
+                            } else {
+                              throw 'Could not launch $url';
+                            }
+                          },
+                          child: Text('Download Now'),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size(double.infinity, 50),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               }
@@ -277,6 +282,22 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
         );
       },
     );
+  }
+
+  void showLoadingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: CircularProgressIndicator(),
+        );
+      },
+    );
+  }
+
+  void hideLoadingDialog(BuildContext context) {
+    Navigator.of(context).pop();
   }
 
   @override
@@ -336,22 +357,33 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
             final item = _catalog[index];
             return GestureDetector(
               onTap: () async {
+                showLoadingDialog(context);
                 GameProfile gameProfile =
                     await fetchGameProfile(item['game_name']);
+                hideLoadingDialog(context);
                 showGameProfileModal(context, gameProfile);
               },
               child: Card(
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Flexible(
-                      child: _loadImageFromBase64(item['iconUrl']),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _loadImageFromBase64(item['iconUrl']),
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    Text(item['display_name'],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(
+                      item['display_name'],
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -402,7 +434,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+              Text('Welcome, $username!',
+                  style: const TextStyle(fontSize: 24)),
               const SizedBox(height: 20),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
