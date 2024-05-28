@@ -72,7 +72,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   List<dynamic> _catalog = [];
   String _currentForm = 'usernameForm';
 
-  final List<int> _ages = List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
+  final List<int> _ages =
+      List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
 
   @override
   void initState() {
@@ -83,7 +84,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   }
 
   void loadLanguages() async {
-    final jsonString = await rootBundle.loadString('assets/language_options.json');
+    final jsonString =
+        await rootBundle.loadString('assets/language_options.json');
     final jsonResponse = jsonDecode(jsonString) as Map<String, dynamic>;
     List<dynamic> languages = jsonResponse['languages'];
 
@@ -98,7 +100,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     if (savedUsername != '') {
       setState(() {
         username = savedUsername;
-        _currentForm = 'catalogGrid';  // Load catalog grid if username is already set
+        _currentForm =
+            'catalogGrid'; // Load catalog grid if username is already set
       });
     }
   }
@@ -175,7 +178,8 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   }
 
   Future<GameProfile> fetchGameProfile(String gameName) async {
-    var url = Uri.parse('http://137.184.225.229:4000/api/game?game_name=$gameName');
+    var url =
+        Uri.parse('http://137.184.225.229:4000/api/game?game_name=$gameName');
     try {
       var response = await http.get(url);
       if (response.statusCode == 200) {
@@ -224,56 +228,60 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
                 return Center(child: Text('Error: ${snapshot.error}'));
               } else {
                 bool isInstalled = snapshot.data ?? false;
-                return Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        gameProfile.displayName,
-                        style: TextStyle(
-                            fontSize: 24, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(gameProfile.description),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8.0,
-                        runSpacing: 4.0,
-                        children: gameProfile.gameTags.map((tag) {
-                          return Chip(label: Text(tag));
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 10),
-                      Chip(label: Text('Age Rating: ${gameProfile.ageRating}')),
-                      const SizedBox(height: 20),
-                      if (isInstalled)
-                        ElevatedButton(
-                          onPressed: () {
-                            DeviceApps.openApp(gameProfile.packageId);
-                          },
-                          child: Text('Play Now'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: Size(double.infinity, 50),
-                          ),
-                        )
-                      else
-                        ElevatedButton(
-                          onPressed: () async {
-                            final url =
-                                'https://play.google.com/store/apps/details?id=${gameProfile.packageId}';
-                            if (await canLaunch(url)) {
-                              await launch(url);
-                            } else {
-                              throw 'Could not launch $url';
-                            }
-                          },
-                          child: Text('Download Now'),
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: Size(double.infinity, 50),
-                          ),
+                return SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          gameProfile.displayName,
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
                         ),
-                    ],
+                        const SizedBox(height: 10),
+                        Text(gameProfile.description),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8.0,
+                          runSpacing: 4.0,
+                          children: gameProfile.gameTags.map((tag) {
+                            return Chip(label: Text(tag));
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 10),
+                        Chip(
+                            label:
+                                Text('Age Rating: ${gameProfile.ageRating}')),
+                        const SizedBox(height: 20),
+                        if (isInstalled)
+                          ElevatedButton(
+                            onPressed: () {
+                              DeviceApps.openApp(gameProfile.packageId);
+                            },
+                            child: Text('Play Now'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: Size(double.infinity, 50),
+                            ),
+                          )
+                        else
+                          ElevatedButton(
+                            onPressed: () async {
+                              final url =
+                                  'https://play.google.com/store/apps/details?id=${gameProfile.packageId}';
+                              if (await canLaunch(url)) {
+                                await launch(url);
+                              } else {
+                                throw 'Could not launch $url';
+                              }
+                            },
+                            child: Text('Download Now'),
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: Size(double.infinity, 50),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 );
               }
