@@ -70,9 +70,9 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   String? _selectedLearningLanguageCode;
   Map<String, String> _languageMap = {};
   List<dynamic> _catalog = [];
+  String _currentForm = 'usernameForm';
 
-  final List<int> _ages =
-      List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
+  final List<int> _ages = List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
 
   @override
   void initState() {
@@ -83,8 +83,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   }
 
   void loadLanguages() async {
-    final jsonString =
-        await rootBundle.loadString('assets/language_options.json');
+    final jsonString = await rootBundle.loadString('assets/language_options.json');
     final jsonResponse = jsonDecode(jsonString) as Map<String, dynamic>;
     List<dynamic> languages = jsonResponse['languages'];
 
@@ -99,6 +98,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     if (savedUsername != '') {
       setState(() {
         username = savedUsername;
+        _currentForm = 'catalogGrid';  // Load catalog grid if username is already set
       });
     }
   }
@@ -114,6 +114,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userToken');
+    await prefs.remove('user_name');
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -143,13 +144,12 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
         String responseBody = response.body;
         var decodedResponse = json.decode(responseBody);
         print(decodedResponse['user_name']);
-        _setUsername(decodedResponse['user_name']);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => SuperSetHomePage()),
-        );
+        await _setUsername(decodedResponse['user_name']);
+        setState(() {
+          _currentForm = 'catalogGrid';
+        });
       } else {
-        print('Failed to login');
+        print('Failed to update profile');
         // Handle error or display message
       }
     } catch (e) {
@@ -325,19 +325,24 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (username != null)
-              Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
-            const SizedBox(height: 20),
-            Expanded(
-              child: _buildCatalogGrid(),
-            ),
-          ],
+        child: Center(
+          child: _buildCurrentForm(),
         ),
       ),
     );
+  }
+
+  Widget _buildCurrentForm() {
+    switch (_currentForm) {
+      case 'usernameForm':
+        return _buildUsernameForm();
+      case 'detailsForm':
+        return _buildDetailsForm();
+      case 'catalogGrid':
+        return _buildCatalogGrid();
+      default:
+        return _buildCatalogGrid();
+    }
   }
 
   Widget _buildCatalogGrid() {
@@ -395,110 +400,104 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   }
 
   Widget _buildUsernameForm() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 300,
-            child: TextField(
-              controller: _usernameController,
-              decoration: const InputDecoration(
-                labelText: 'Enter your username',
-                border: OutlineInputBorder(),
-              ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 300,
+          child: TextField(
+            controller: _usernameController,
+            decoration: const InputDecoration(
+              labelText: 'Enter your username',
+              border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                username = _usernameController.text;
-                _isUsernameFormSubmitted = true;
-              });
-            },
-            child: const Icon(Icons.arrow_forward),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              username = _usernameController.text;
+              _currentForm = 'detailsForm';
+            });
+          },
+          child: const Icon(Icons.arrow_forward),
+        ),
+      ],
     );
   }
 
   Widget _buildDetailsForm() {
-    return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-            child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: 600),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Welcome, $username!',
-                  style: const TextStyle(fontSize: 24)),
-              const SizedBox(height: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<int>(
-                    value: _age,
-                    decoration: InputDecoration(
-                      labelText: Translator.translate('select_age'),
-                      border: OutlineInputBorder(),
-                      filled: true,
-                    ),
-                    onChanged: (int? newValue) {
+    return SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 600),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Welcome, $username!', style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<int>(
+                  value: _age,
+                  decoration: InputDecoration(
+                    labelText: Translator.translate('select_age'),
+                    border: OutlineInputBorder(),
+                    filled: true,
+                  ),
+                  onChanged: (int? newValue) {
+                    setState(() {
+                      _age = newValue!;
+                    });
+                  },
+                  items: _ages.map<DropdownMenuItem<int>>((int value) {
+                    return DropdownMenuItem<int>(
+                      value: value,
+                      child: Text(value.toString()),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _selectedLearningLanguageCode,
+                  decoration: InputDecoration(
+                    labelText: Translator.translate('select_learning_language'),
+                    border: OutlineInputBorder(),
+                    filled: true,
+                  ),
+                  onChanged: (String? newValue) async {
+                    if (newValue != null) {
                       setState(() {
-                        _age = newValue!;
+                        _selectedLearningLanguageCode = newValue;
                       });
-                    },
-                    items: _ages.map<DropdownMenuItem<int>>((int value) {
-                      return DropdownMenuItem<int>(
-                        value: value,
-                        child: Text(value.toString()),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: _selectedLearningLanguageCode,
-                    decoration: InputDecoration(
-                      labelText:
-                          Translator.translate('select_learning_language'),
-                      border: OutlineInputBorder(),
-                      filled: true,
-                    ),
-                    onChanged: (String? newValue) async {
-                      if (newValue != null) {
-                        setState(() {
-                          _selectedLearningLanguageCode = newValue;
-                        });
-                      }
-                    },
-                    items: _languageMap.entries.map((entry) {
-                      return DropdownMenuItem<String>(
-                        value: entry.key,
-                        child: Text(entry.value),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  completeProfile();
-                },
-                child: Text(Translator.translate('complete_profile')),
-              ),
-            ],
-          ),
-        )));
+                    }
+                  },
+                  items: _languageMap.entries.map((entry) {
+                    return DropdownMenuItem<String>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                completeProfile();
+              },
+              child: Text(Translator.translate('complete_profile')),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
