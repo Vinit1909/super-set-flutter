@@ -76,7 +76,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> signup(String email, String password) async {
     showLoadingDialog(context);
-    var url = Uri.parse('http://10.0.0.46:4000/api/signup');
+    var url = Uri.parse('http://137.184.225.229:4000/api/signup');
     var headers = {'Content-Type': 'application/json'};
     var body = jsonEncode({'email': email, 'password': password});
     try {
@@ -104,7 +104,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> signin(String email, String password) async {
     showLoadingDialog(context);
-    var signInurl = Uri.parse('http://10.0.0.46:4000/api/signin');
+    var signInurl = Uri.parse('http://137.184.225.229:4000/api/signin');
     var headers = {'Content-Type': 'application/json'};
     var body = jsonEncode({'email': email, 'password': password});
     try {
@@ -116,7 +116,7 @@ class _LoginPageState extends State<LoginPage> {
         String userToken = decodedSigninResponse['userToken'];
         await prefs.setString('userToken', decodedSigninResponse['userToken']);
         var profileUrl =
-            Uri.parse('http://10.0.0.46:4000/api/get-user-profile');
+            Uri.parse('http://137.184.225.229:4000/api/get-user-profile');
         var profileHeaders = {
           'Content-Type': 'application/json',
           'Authorization': userToken,
