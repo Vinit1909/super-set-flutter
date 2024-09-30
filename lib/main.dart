@@ -8,6 +8,7 @@ import 'package:superset/login/login.dart';
 import 'package:http/http.dart' as http;
 import 'package:device_apps/device_apps.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'user_profile_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,13 +65,15 @@ class SuperSetHomePage extends StatefulWidget {
 
 class _SuperSetHomePageState extends State<SuperSetHomePage> {
   String? username;
-  bool _isUsernameFormSubmitted = false;
+  // bool _isUsernameFormSubmitted = false;
   final TextEditingController _usernameController = TextEditingController();
   int? _age;
   String? _selectedLearningLanguageCode;
   Map<String, String> _languageMap = {};
   List<dynamic> _catalog = [];
   String _currentForm = 'usernameForm';
+  RangeValues _ageFilter = RangeValues(3, 18);
+  bool _isFilterActive = false;
 
   final List<int> _ages =
       List<int>.generate(16, (i) => i + 3); // Generates ages from 3 to 18
@@ -78,9 +81,10 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   @override
   void initState() {
     super.initState();
-    _loadUsername();
+    _checkProfileCompletion(); // New function to check profile completion status
     loadLanguages();
     fetchCatalog();
+    fetchUserProfile(); // Call the profile fetch function after login
   }
 
   void loadLanguages() async {
@@ -94,16 +98,100 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     });
   }
 
+  Future<void> _checkProfileCompletion() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool? profileComplete = prefs.getBool('profileComplete');
+
+    // If profileComplete is null, this means it's a new user (first-time signup)
+    if (profileComplete == null || profileComplete == false) {
+      setState(() {
+        _currentForm =
+            'usernameForm'; // Show username form for first-time users
+      });
+    } else {
+      // Profile is complete, proceed to the catalog
+      setState(() {
+        _currentForm = 'catalogGrid';
+      });
+    }
+  }
+
+  Future<void> fetchUserProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userToken = prefs.getString('userToken');
+
+    if (userToken == null || userToken.isEmpty) {
+      print('No user token found');
+      await _loadUsername(); // Fall back to local data if no token
+      return;
+    }
+
+    var url = Uri.parse('http://localhost:4000/api/get-user-profile');
+    var headers = {'Authorization': 'Bearer $userToken'};
+
+    try {
+      var response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        var userProfile = json.decode(response.body);
+
+        // Save all profile data to SharedPreferences
+        await prefs.setString('user_name', userProfile['user_name'] ?? '');
+        await prefs.setString(
+            'learning_language', userProfile['learning_language'] ?? '');
+        await prefs.setInt('user_age', userProfile['user_age'] ?? 0);
+        await prefs.setString(
+            'language_preference', userProfile['language_preference'] ?? '');
+
+        // Mark profile as complete
+        await prefs.setBool('profileComplete', true);
+
+        setState(() {
+          username = userProfile['user_name'];
+          _selectedLearningLanguageCode = userProfile['learning_language'];
+          _age = userProfile['user_age'];
+          _currentForm =
+              'catalogGrid'; // Show the catalog grid once the profile is loaded
+        });
+      } else if (response.statusCode == 404) {
+        // Profile not found, so it's a new user signing up
+        print('User profile not found, assuming first-time signup.');
+        setState(() {
+          _currentForm = 'usernameForm'; // Start the signup flow
+        });
+      } else {
+        print('Failed to retrieve user profile: ${response.statusCode}');
+        await _loadUsername(); // Fall back to local data if fetch fails
+      }
+    } catch (e) {
+      print('Error retrieving user profile: $e');
+      await _loadUsername(); // Fall back to local data if there's an error
+    }
+  }
+
   Future<void> _loadUsername() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUsername = prefs.getString('user_name') ?? '';
-    if (savedUsername != '') {
-      setState(() {
-        username = savedUsername;
-        _currentForm =
-            'catalogGrid'; // Load catalog grid if username is already set
-      });
-    }
+    final savedLearningLanguage = prefs.getString('learning_language');
+    final savedAge = prefs.getInt('user_age');
+    final isProfileComplete = prefs.getBool('profileComplete') ?? false;
+
+    print(
+        'Saved username: $savedUsername, Profile complete: $isProfileComplete');
+
+    setState(() {
+      username = savedUsername;
+      _selectedLearningLanguageCode = savedLearningLanguage;
+      _age = savedAge;
+
+      if (isProfileComplete) {
+        _currentForm = 'catalogGrid';
+      } else if (savedUsername.isNotEmpty) {
+        _currentForm = 'detailsForm';
+      } else {
+        _currentForm = 'usernameForm';
+      }
+    });
   }
 
   Future<void> _setUsername(String newUsername) async {
@@ -118,20 +206,40 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userToken');
     await prefs.remove('user_name');
+    await prefs.remove(
+        'profileCompleted'); // Clear the profileCompleted flag on logout
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => const LoginPage()),
     );
   }
 
+  // Add this method to update the profile completion status
+  Future<void> updateProfileCompletionStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool isProfileComplete = username != null &&
+        username!.isNotEmpty &&
+        _selectedLearningLanguageCode != null &&
+        _age != null;
+    await prefs.setBool('profileComplete', isProfileComplete);
+  }
+
   Future<void> completeProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final storedLanguage = prefs.getString('selectedLanguage');
     final userToken = prefs.getString('userToken');
-    var url = Uri.parse('http://137.184.225.229:4000/api/set-user-profile');
+
+    print('User Token: $userToken');
+
+    if (userToken == null || userToken.isEmpty) {
+      print('No user token found');
+      return;
+    }
+
+    var url = Uri.parse('http://localhost:4000/api/set-user-profile');
     var headers = {
       'Content-Type': 'application/json',
-      'Authorization': '$userToken'
+      'Authorization': 'Bearer $userToken'
     };
     var body = jsonEncode({
       'language_preference': storedLanguage,
@@ -139,30 +247,55 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
       'user_name': username,
       'user_age': _age
     });
+
     try {
       var response = await http.post(url, headers: headers, body: body);
-      print(response.statusCode);
 
-      if (response.statusCode == 201) {
-        String responseBody = response.body;
-        var decodedResponse = json.decode(responseBody);
-        print(decodedResponse['user_name']);
-        await _setUsername(decodedResponse['user_name']);
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        var decodedResponse = json.decode(response.body);
+
+        // Safely extract values with null-checks
+        String newUsername = decodedResponse['user_name'] ?? '';
+        String? learningLanguage = decodedResponse['learning_language'] ?? null;
+        int? userAge = decodedResponse['user_age'] != null
+            ? decodedResponse['user_age'] as int
+            : null;
+
+        if (newUsername.isNotEmpty) {
+          // Update local storage and state with the response data
+          await _setUsername(newUsername);
+        }
+
+        if (learningLanguage != null) {
+          await prefs.setString('learning_language', learningLanguage);
+        }
+
+        if (userAge != null) {
+          await prefs.setInt('user_age', userAge);
+        }
+
+        // Update profile completion status
+        await updateProfileCompletionStatus();
+
         setState(() {
           _currentForm = 'catalogGrid';
         });
       } else {
-        print('Failed to update profile');
-        // Handle error or display message
+        print(
+            'Failed to update profile: ${response.statusCode} ${response.body}');
+        // You might want to show an error message to the user here
       }
     } catch (e) {
       print('Error connecting to the server: $e');
-      // Handle exception by showing user-friendly error message
+      // You might want to show an error message to the user here
     }
   }
 
   Future<void> fetchCatalog() async {
-    var url = Uri.parse('http://137.184.225.229:4000/api/all-game-profiles');
+    var url = Uri.parse('http://localhost:4000/api/all-game-profiles');
     try {
       var response = await http.get(url);
       if (response.statusCode == 200) {
@@ -178,8 +311,7 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
   }
 
   Future<GameProfile> fetchGameProfile(String gameName) async {
-    var url =
-        Uri.parse('http://137.184.225.229:4000/api/game?game_name=$gameName');
+    var url = Uri.parse('http://localhost:4000/api/game?game_name=$gameName');
     try {
       var response = await http.get(url);
       if (response.statusCode == 200) {
@@ -308,12 +440,53 @@ class _SuperSetHomePageState extends State<SuperSetHomePage> {
     Navigator.of(context).pop();
   }
 
+  // @override
+  // Widget build(BuildContext context) {
+  //   return Scaffold(
+  //     appBar: AppBar(
+  //       title: const Text('Super Set'),
+  //       actions: [
+  //         PopupMenuButton<String>(
+  //           onSelected: (value) {
+  //             if (value == 'logout') {
+  //               _logout();
+  //             }
+  //           },
+  //           itemBuilder: (BuildContext context) {
+  //             return [
+  //               const PopupMenuItem<String>(
+  //                 value: 'logout',
+  //                 child: Text('Logout'),
+  //               ),
+  //             ];
+  //           },
+  //         ),
+  //       ],
+  //     ),
+  //     body: Padding(
+  //       padding: const EdgeInsets.all(16.0),
+  //       child: Center(
+  //         child: _buildCurrentForm(),
+  //       ),
+  //     ),
+  //   );
+  // }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Super Set'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.person),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => UserProfilePage()),
+              );
+            },
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'logout') {
